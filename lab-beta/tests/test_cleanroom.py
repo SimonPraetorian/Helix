@@ -1,11 +1,18 @@
 import json
 import tempfile
 import unittest
+import multiprocessing
 from pathlib import Path
 
 from cleanroom.ledger import EvidenceLedger, LedgerError
 from cleanroom.models import Observation, Proposal
 from cleanroom.supervisor import CleanRoom
+
+
+def _ledger_writer(path, worker, count):
+    ledger = EvidenceLedger(path)
+    for index in range(count):
+        ledger.append("CONCURRENT_TEST", {"worker": worker, "index": index})
 
 
 def proposal(**overrides):
@@ -52,6 +59,32 @@ class CleanRoomTests(unittest.TestCase):
                 room.review_quarantine("agent-A","RELEASE","","")
             self.assertEqual(room.review_quarantine("agent-A","RELEASE","reviewer-2","evidence:sha256:x")["status"],"RELEASE")
             self.assertNotIn("agent-A",room.quarantined)
+
+    def test_quarantine_survives_supervisor_restart(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"events.jsonl"
+            room=CleanRoom(path)
+            room.submit(proposal(action="DELETE"))
+            restarted=CleanRoom(path)
+            self.assertIn("agent-A",restarted.quarantined)
+            restarted.review_quarantine("agent-A","RELEASE","reviewer-2","evidence:sha256:release")
+            restarted_again=CleanRoom(path)
+            self.assertNotIn("agent-A",restarted_again.quarantined)
+
+    def test_ledger_serializes_concurrent_process_writers(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=str(Path(d)/"events.jsonl")
+            ctx=multiprocessing.get_context("spawn")
+            workers=[ctx.Process(target=_ledger_writer,args=(path,f"w{i}",12)) for i in range(4)]
+            for worker in workers: worker.start()
+            for worker in workers:
+                worker.join(15)
+                self.assertEqual(worker.exitcode,0)
+            ledger=EvidenceLedger(path)
+            rows=ledger.records()
+            self.assertEqual(len(rows),48)
+            self.assertEqual([row["sequence"] for row in rows],list(range(1,49)))
+            self.assertTrue(ledger.verify()["valid"])
 
     def test_ledger_detects_record_tampering(self):
         with tempfile.TemporaryDirectory() as d:
