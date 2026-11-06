@@ -9,7 +9,9 @@ This is an additive first tranche built beside the Helix 0.2 synthetic lab.
 - Clears only proposals that pass both reviews.
 - Quarantines on prohibited actions, reviewer protocol failures, or mismatch between an agent declaration and an independent observation.
 - Records proposal, review, reconciliation, quarantine and release events in an append-only SHA-256 hash chain.
-- Requires a named reviewer and evidence reference to release an agent from quarantine.
+- Serializes ledger writers with OS-backed file-handle locks; the OS releases locks when a process exits.
+- Reconstructs quarantine state from the verified ledger after supervisor restart.
+- Requires reviewer and evidence references to release an agent from quarantine. These are recorded claims, not cryptographically authenticated reviewer identities.
 
 Ordinary logic rejection is not automatically treated as misconduct and does not create a strike. A mismatch triggers protective quarantine, not a finding of intent. Strikes or disciplinary conclusions require a separate independent investigation and are deliberately not implemented here.
 
@@ -27,8 +29,8 @@ The Clean Room tests use only Python's standard library.
 
 The reviewer roles are separate OS processes, but they still run under the same operating-system user and inherit broadly similar privileges. This is **process separation, not a hardened security sandbox**. There is no container, restricted token, seccomp, AppContainer, VM, filesystem policy, network namespace or hostile-code execution in this tranche.
 
-The ledger is hash-chained and detects ordinary alteration. An attacker able to rewrite the entire ledger can recompute the chain. Strong tamper evidence requires an independently held checkpoint/signature or external custody. No SEC-001/Spine receipt is claimed.
+The ledger is hash-chained and detects ordinary alteration. An attacker able to rewrite the entire ledger can recompute the chain. OS file locks serialize cooperating processes on the same underlying file handle/inode; filesystem and platform semantics still require Windows/Linux execution evidence. Strong tamper evidence requires an independently held checkpoint/signature or external custody. No SEC-001/Spine receipt is claimed.
 
-The supervisor's in-memory quarantine set is not yet restart-persistent. The event ledger preserves quarantine decisions, but recovery/reconstruction of live quarantine state is a required next gate.
+The supervisor reconstructs quarantine state from the verified event ledger at startup. Reviewer identity is currently a recorded assertion, not cryptographic authentication or a separately provisioned reviewer authority.
 
 There is no live model, external tool, shell, filesystem or network action adapter. The harness evaluates structured proposals and externally supplied observations only. No autonomous agent or production system is being supervised yet.
