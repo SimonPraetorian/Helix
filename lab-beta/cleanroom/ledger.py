@@ -50,7 +50,7 @@ class EvidenceLedger:
     def _read_unlocked(self, stream) -> list[dict[str, Any]]:
         stream.seek(0)
         raw = stream.read()
-        if raw and not raw.endswith(b"\\n"):
+        if raw and not raw.endswith(b"\n"):
             raise LedgerError("ledger has an incomplete final record")
         rows = []
         previous = "0" * 64
@@ -87,7 +87,7 @@ class EvidenceLedger:
                 digest = hashlib.sha256(bytes.fromhex(previous) + canonical(body)).hexdigest()
                 record = dict(body, hash=digest)
                 stream.seek(0, os.SEEK_END)
-                stream.write(canonical(record) + b"\\n")
+                stream.write(canonical(record) + b"\n")
                 stream.flush()
                 os.fsync(stream.fileno())
                 return record
