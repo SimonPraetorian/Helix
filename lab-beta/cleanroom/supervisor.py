@@ -18,6 +18,14 @@ class CleanRoom:
         self.ledger = EvidenceLedger(ledger_path)
         self.reviewer_timeout = reviewer_timeout
         self.quarantined: dict[str, str] = {}
+        # Reconstruct quarantine state from the verified durable evidence history.
+        for record in self.ledger.records():
+            payload = record.get("payload", {})
+            agent_id = payload.get("agent_id")
+            if record.get("event") == "QUARANTINE" and agent_id:
+                self.quarantined[agent_id] = payload.get("reason", "quarantined; reason unavailable")
+            elif record.get("event") == "QUARANTINE_REVIEW" and agent_id and payload.get("disposition") == "RELEASE":
+                self.quarantined.pop(agent_id, None)
 
     def _review(self, module: str, proposal: dict[str, Any]) -> dict[str, Any]:
         try:
