@@ -1,0 +1,29 @@
+name: Fondability Clean Room tests
+
+on:
+  push:
+    branches:
+      - feature/clean-room-quarantine-20261106
+    paths:
+      - "lab-beta/cleanroom/**"
+      - "lab-beta/tests/test_cleanroom.py"
+      - ".github/workflows/clean-room-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  clean-room:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run complete Helix and Clean Room tests
+        working-directory: lab-beta
+        run: python -m unittest discover -s tests -v
